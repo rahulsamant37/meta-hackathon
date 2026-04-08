@@ -38,11 +38,7 @@ def clamp01(value: float) -> float:
 
 def clamp01_open(value: float, epsilon: float = SCORE_EPSILON) -> float:
     bounded = clamp01(value)
-    if bounded <= 0.0:
-        return epsilon
-    if bounded >= 1.0:
-        return 1.0 - epsilon
-    return bounded
+    return min(1.0 - epsilon, max(epsilon, bounded))
 
 
 def is_present(value: Any) -> bool:
