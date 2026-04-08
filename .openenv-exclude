@@ -1,0 +1,35 @@
+# Course/tutorial materials not needed for deployment
+openenv-course/**
+
+# Local environment and caches
+.venv/**
+.env/**
+__pycache__/**
+**/__pycache__/**
+*.pyc
+
+# Local logs and temporary outputs
+*.log
+full_run.log
+
+# Non-runtime docs and authoring artifacts
+context.md
+spec.md
+problem-statement.md
+task.md
+
+# Development-only scripts
+pre-validation-script.sh
+server/pre-validation-script.sh
+generate_tasks_jsonl.py
+sample-inference.py
+
+# Exclude older SQL snapshots; keep canonical runtime seed only
+itsm/dbs/db_1765301900121_3mwjj54xy.sql
+itsm/dbs/db_1765893060767_9rwtfbbp7.sql
+itsm/dbs/db_1765949061488_6sskwu6en.sql
+itsm/dbs/db_1765984530018_6f72jkf3p.sql
+itsm/dbs/db_1766063289316_o5f6sbf3g.sql
+itsm/dbs/db_1766091624245_iotwhtzd5.sql
+itsm/dbs/db_1766289728874_6ecz8xaeu.sql
+itsm/dbs/db_1766420030407_0anxy19de.sql
