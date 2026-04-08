@@ -11,18 +11,19 @@ try:
 except Exception:  # pragma: no cover - fallback for minimal runtime images
     OpenAI = None  # type: ignore[assignment]
 
-IMAGE_NAME = os.getenv("IMAGE_NAME") # If you are using docker image 
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
-
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-7B-Instruct")
-HF_TOKEN = os.getenv("HF_TOKEN", "")
+HF_TOKEN = os.getenv("HF_TOKEN")
 
-ENV_BASE_URL = os.getenv("ENV_BASE_URL", "http://localhost:8000").rstrip("/")
+ENV_BASE_URL = os.getenv("ENV_BASE_URL", "https://huggingface.co/spaces/rahulsamant37/itsm-openenv-benchmark").rstrip("/")
 TASKS_JSONL_PATH = os.getenv("TASKS_JSONL_PATH", "tasks.jsonl")
 # r_t = 0.20 * validity + 0.45 * progress + 0.20 * consistency - 0.15 * penalty + terminal+bonus
 MAX_TASKS = int(os.getenv("MAX_TASKS", "181"))
 MAX_STEPS_PER_TASK = int(os.getenv("MAX_STEPS_PER_TASK", "8"))
+
+
+def clamp01(value: float) -> float:
+    return max(0.0, min(1.0, value))
 
 
 def log_start(task_name: str, env_name: str, model_name: str) -> None:
@@ -37,9 +38,12 @@ def log_step(step: int, action: str, reward: float, done: bool, error: str | Non
     )
 
 
-def log_end(success: bool, steps: int, rewards: list[float]) -> None:
+def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
     rewards_text = ",".join(f"{value:.2f}" for value in rewards)
-    print(f"[END] success={str(success).lower()} steps={steps} rewards={rewards_text}", flush=True)
+    print(
+        f"[END] success={str(success).lower()} steps={steps} score={clamp01(score):.2f} rewards={rewards_text}",
+        flush=True,
+    )
 
 
 def load_task_ids(path: str, max_tasks: int) -> list[str]:
@@ -209,6 +213,7 @@ def run_episode(session: requests.Session, client: Any, task_id: str) -> None:
     rewards: list[float] = []
     steps_taken = 0
     success = False
+    score = 0.0
 
     log_start(task_name=task_id, env_name="itsm-openenv", model_name=MODEL_NAME)
 
@@ -241,8 +246,13 @@ def run_episode(session: requests.Session, client: Any, task_id: str) -> None:
             else:
                 reward = float(reward_payload)
             done = bool(result.get("done", False))
-            info = result.get("info"https://huggingface.co/openai/gpt-oss-20b {}) or {}
+            info = result.get("info", {}) or {}
             obs = result.get("observation", {}) or {}
+
+            try:
+                score = clamp01(float(info.get("grader_score", score)))
+            except (TypeError, ValueError):
+                score = clamp01(score)
 
             steps_taken = step
             rewards.append(reward)
@@ -255,7 +265,7 @@ def run_episode(session: requests.Session, client: Any, task_id: str) -> None:
                 break
 
     finally:
-        log_end(success=success, steps=steps_taken, rewards=rewards)
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 
 def main() -> None:
