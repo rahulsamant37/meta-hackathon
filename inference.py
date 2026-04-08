@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 import requests
@@ -15,7 +16,18 @@ API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-7B-Instruct")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-ENV_BASE_URL = os.getenv("ENV_BASE_URL", "https://huggingface.co/spaces/rahulsamant37/itsm-openenv-benchmark").rstrip("/")
+def normalize_env_base_url(url: str) -> str:
+    normalized = url.rstrip("/")
+    match = re.match(r"^https?://huggingface\.co/spaces/([^/]+)/([^/]+)$", normalized)
+    if match:
+        username, space = match.groups()
+        return f"https://{username}-{space}.hf.space"
+    return normalized
+
+
+ENV_BASE_URL = normalize_env_base_url(
+    os.getenv("ENV_BASE_URL", "https://rahulsamant37-itsm-openenv-benchmark.hf.space")
+)
 TASKS_JSONL_PATH = os.getenv("TASKS_JSONL_PATH", "tasks.jsonl")
 # r_t = 0.20 * validity + 0.45 * progress + 0.20 * consistency - 0.15 * penalty + terminal+bonus
 MAX_TASKS = int(os.getenv("MAX_TASKS", "181"))
