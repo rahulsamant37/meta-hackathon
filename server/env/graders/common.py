@@ -4,6 +4,9 @@ from datetime import datetime
 from typing import Any, Mapping, Sequence
 
 
+SCORE_EPSILON = 1e-6
+
+
 INCIDENT_STATUS_PROGRESS = {
     "new": 0.15,
     "in_progress": 0.45,
@@ -31,6 +34,15 @@ SLA_STAGE_PROGRESS = {
 
 def clamp01(value: float) -> float:
     return max(0.0, min(1.0, value))
+
+
+def clamp01_open(value: float, epsilon: float = SCORE_EPSILON) -> float:
+    bounded = clamp01(value)
+    if bounded <= 0.0:
+        return epsilon
+    if bounded >= 1.0:
+        return 1.0 - epsilon
+    return bounded
 
 
 def is_present(value: Any) -> bool:

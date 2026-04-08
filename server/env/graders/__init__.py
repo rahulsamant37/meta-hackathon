@@ -3,10 +3,17 @@ from __future__ import annotations
 from typing import Any
 
 from ..models import TaskDefinition
+from .common import clamp01_open
 from .incident import grade_incident
 from .knowledge import grade_knowledge
 from .problem import grade_problem
 from .sla import grade_sla
+
+
+def _normalize_result(result: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(result)
+    normalized["score"] = clamp01_open(float(normalized.get("score", 0.0)))
+    return normalized
 
 
 def _has_meaningful_action(history: list[dict[str, Any]]) -> bool:
@@ -30,7 +37,7 @@ def _apply_interaction_gate(result: dict[str, Any], history: list[dict[str, Any]
     if _has_meaningful_action(history):
         result.setdefault("components", {})
         result["components"]["interaction"] = 1.0
-        return result
+        return _normalize_result(result)
 
     gated = dict(result)
     gated["score"] = min(float(gated.get("score", 0.0)), 0.90)
@@ -42,7 +49,7 @@ def _apply_interaction_gate(result: dict[str, Any], history: list[dict[str, Any]
     violations = list(gated.get("violations", []))
     violations.append("no meaningful state-changing action yet")
     gated["violations"] = violations
-    return gated
+    return _normalize_result(gated)
 
 
 def grade_task(
@@ -51,17 +58,17 @@ def grade_task(
     history: list[dict[str, Any]],
 ) -> dict[str, Any]:
     if task.source_table == "incident":
-        return _apply_interaction_gate(grade_incident(task, db_index, history), history)
+        return _normalize_result(_apply_interaction_gate(grade_incident(task, db_index, history), history))
     if task.source_table == "incident_sla":
-        return _apply_interaction_gate(grade_sla(task, db_index, history), history)
+        return _normalize_result(_apply_interaction_gate(grade_sla(task, db_index, history), history))
     if task.source_table == "problem":
-        return _apply_interaction_gate(grade_problem(task, db_index, history), history)
+        return _normalize_result(_apply_interaction_gate(grade_problem(task, db_index, history), history))
     if task.source_table == "incident_knowledge":
-        return _apply_interaction_gate(grade_knowledge(task, db_index, history), history)
+        return _normalize_result(_apply_interaction_gate(grade_knowledge(task, db_index, history), history))
 
-    return {
+    return _normalize_result({
         "score": 0.0,
         "consistency": 0.0,
         "components": {},
         "violations": [f"unsupported task source_table: {task.source_table}"],
-    }
+    })

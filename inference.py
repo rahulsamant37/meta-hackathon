@@ -38,6 +38,15 @@ def clamp01(value: float) -> float:
     return max(0.0, min(1.0, value))
 
 
+def clamp01_open(value: float, epsilon: float = 1e-3) -> float:
+    bounded = clamp01(value)
+    if bounded <= 0.0:
+        return epsilon
+    if bounded >= 1.0:
+        return 1.0 - epsilon
+    return bounded
+
+
 def log_start(task_name: str, env_name: str, model_name: str) -> None:
     print(f"[START] task={task_name} env={env_name} model={model_name}", flush=True)
 
@@ -52,8 +61,9 @@ def log_step(step: int, action: str, reward: float, done: bool, error: str | Non
 
 def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
     rewards_text = ",".join(f"{value:.2f}" for value in rewards)
+    strict_score = clamp01_open(score)
     print(
-        f"[END] success={str(success).lower()} steps={steps} score={clamp01(score):.2f} rewards={rewards_text}",
+        f"[END] success={str(success).lower()} steps={steps} score={strict_score:.3f} rewards={rewards_text}",
         flush=True,
     )
 
@@ -262,9 +272,9 @@ def run_episode(session: requests.Session, client: Any, task_id: str) -> None:
             obs = result.get("observation", {}) or {}
 
             try:
-                score = clamp01(float(info.get("grader_score", score)))
+                score = clamp01_open(float(info.get("grader_score", score)))
             except (TypeError, ValueError):
-                score = clamp01(score)
+                score = clamp01_open(score)
 
             steps_taken = step
             rewards.append(reward)
