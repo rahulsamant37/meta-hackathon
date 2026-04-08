@@ -1,0 +1,50 @@
+name: itsm-openenv-benchmark
+version: "0.1.0"
+description: Deterministic ITSM benchmark environment with 181 tasks from seeded enterprise operations data.
+tags:
+  - openenv
+  - itsm
+  - enterprise-ops
+
+runtime:
+  framework: fastapi
+  entrypoint: server.app:app
+  host: 0.0.0.0
+  port: 8000
+
+environment:
+  task_manifest: tasks.jsonl
+  sql_seed: itsm/dbs/db_1768479715490_ex6u7viv2.sql
+  task_count: 181
+  methods:
+    - reset
+    - step
+    - state
+  schemas:
+    action: models.ITSMAction
+    observation: models.ITSMObservation
+    reward: models.ITSMReward
+    info: models.ITSMInfo
+  episode_limits:
+    incident: 8
+    incident_sla: 6
+    problem: 8
+    incident_knowledge: 5
+
+evaluation:
+  sets:
+    all:
+      count: 181
+      filter: task_id=ITSM-001..ITSM-181
+    incident:
+      count: 100
+      filter: source_table=incident
+    incident_sla:
+      count: 26
+      filter: source_table=incident_sla
+    problem:
+      count: 10
+      filter: source_table=problem
+    incident_knowledge:
+      count: 45
+      filter: source_table=incident_knowledge
