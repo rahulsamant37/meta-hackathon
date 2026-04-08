@@ -15,6 +15,7 @@ except Exception:  # pragma: no cover - fallback for minimal runtime images
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-7B-Instruct")
 HF_TOKEN = os.getenv("HF_TOKEN")
+API_KEY = os.getenv("API_KEY")
 
 def normalize_env_base_url(url: str) -> str:
     normalized = url.rstrip("/")
@@ -290,8 +291,9 @@ def main() -> None:
     task_ids = load_task_ids(TASKS_JSONL_PATH, MAX_TASKS)
 
     client = None
-    if OpenAI is not None and HF_TOKEN:
-        client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
+    auth_token = API_KEY or HF_TOKEN
+    if OpenAI is not None and auth_token:
+        client = OpenAI(base_url=API_BASE_URL, api_key=auth_token)
 
     session = requests.Session()
     for task_id in task_ids:
