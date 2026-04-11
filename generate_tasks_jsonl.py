@@ -26,6 +26,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from itsm_openenv_benchmark.models import TaskDefinition
+
 ROOT = Path(__file__).resolve().parent
 TASK_MD = ROOT / "task.md"
 TASKS_JSONL_SEED = ROOT / "tasks.jsonl"
@@ -528,7 +530,9 @@ def main() -> None:
         row = table_index.get(table, {}).get(source_id)
         if row is None:
             raise ValueError(f"Could not find source row for {task['task_id']} -> {table}:{source_id}")
-        records.append(build_record(task, row))
+        record = build_record(task, row)
+        TaskDefinition.model_validate(record)
+        records.append(record)
 
     if len(records) != 181:
         raise ValueError(f"Expected 181 output records, got {len(records)}")

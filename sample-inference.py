@@ -1,197 +1,152 @@
+"""Single-episode ITSM sample inference script.
+
+This script is intentionally simple and deterministic. It demonstrates the
+HTTP protocol and required log format for one task.
 """
-Inference Script Example
-===================================
-MANDATORY
-- Before submitting, ensure the following variables are defined in your environment configuration:
-    API_BASE_URL   The API endpoint for the LLM.
-    MODEL_NAME     The model identifier to use for inference.
-    HF_TOKEN       Your Hugging Face / API key.
-    LOCAL_IMAGE_NAME The name of the local image to use for the environment if you are using from_docker_image()
-                     method
 
-- Defaults are set only for API_BASE_URL and MODEL_NAME 
-    (and should reflect your active inference setup):
-    API_BASE_URL = os.getenv("API_BASE_URL", "<your-active-endpoint>")
-    MODEL_NAME = os.getenv("MODEL_NAME", "<your-active-model>")
-    
-- The inference script must be named `inference.py` and placed in the root directory of the project
-- Participants must use OpenAI Client for all LLM calls using above variables
+from __future__ import annotations
 
-STDOUT FORMAT
-- The script must emit exactly three line types to stdout, in this order:
-
-    [START] task=<task_name> env=<benchmark> model=<model_name>
-    [STEP]  step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>
-    [END]   success=<true|false> steps=<n> rewards=<r1,r2,...,rn>
-
-  Rules:
-    - One [START] line at episode begin.
-    - One [STEP] line per step, immediately after env.step() returns.
-    - One [END] line after env.close(), always emitted (even on exception).
-    - reward and rewards are formatted to 2 decimal places.
-    - done and success are lowercase booleans: true or false.
-    - error is the raw last_action_error string, or null if none.
-    - All fields on a single line with no newlines within a line.
-
-  Example:
-    [START] task=click-test env=miniwob model=Qwen3-VL-30B
-    [STEP] step=1 action=click('123') reward=0.00 done=false error=null
-    [STEP] step=2 action=fill('456','text') reward=0.00 done=false error=null
-    [STEP] step=3 action=click('789') reward=1.00 done=true error=null
-    [END] success=true steps=3 rewards=0.00,0.00,1.00
-"""
-import asyncio
-import importlib
+import json
 import os
-import textwrap
-from typing import Any, List, Optional
+from typing import Any
 
-from openai import OpenAI
-IMAGE_NAME = os.getenv("IMAGE_NAME") # If you are using docker image 
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
-
-API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
-MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
-TASK_NAME = os.getenv("MY_ENV_V4_TASK", "echo")
-BENCHMARK = os.getenv("MY_ENV_V4_BENCHMARK", "my_env_v4")
-MAX_STEPS = 8
-TEMPERATURE = 0.7
-MAX_TOKENS = 150
-SUCCESS_SCORE_THRESHOLD = 0.1  # normalized score in [0, 1]
-
-# Max possible reward: each token contributes 0.1, across all steps
-_MAX_REWARD_PER_STEP = MAX_TOKENS * 0.1
-MAX_TOTAL_REWARD = MAX_STEPS * _MAX_REWARD_PER_STEP
-
-SYSTEM_PROMPT = textwrap.dedent(
-    """
-    You are interacting with a simple echo environment.
-    Each turn you must send a message. The environment will echo it back.
-    Reward is proportional to message length: reward = len(message) * 0.1
-    Your goal is to maximize total reward by sending meaningful, substantive messages.
-    Reply with exactly one message string — no quotes, no prefixes, just the message text.
-    """
-).strip()
+import requests
 
 
-def load_env_bindings() -> tuple[type[Any], type[Any]]:
-    try:
-        module = importlib.import_module("my_env_v4")
-    except ModuleNotFoundError as exc:
-        raise RuntimeError(
-            "Missing 'my_env_v4'. Add it to your PYTHONPATH or install it before running this sample."
-        ) from exc
-
-    return module.MyEnvV4Action, module.MyEnvV4Env
+ENV_BASE_URL = os.getenv("ENV_BASE_URL", "http://localhost:8000").rstrip("/")
+TASK_ID = os.getenv("TASK_ID", "ITSM-001")
 
 
-def log_start(task: str, env: str, model: str) -> None:
-    print(f"[START] task={task} env={env} model={model}", flush=True)
+def clamp01(value: float) -> float:
+    return max(0.0, min(1.0, value))
 
 
-def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
-    error_val = error if error else "null"
-    done_val = str(done).lower()
+def clamp01_open(value: float, epsilon: float = 1e-3) -> float:
+    bounded = clamp01(value)
+    return min(1.0 - epsilon, max(epsilon, bounded))
+
+
+def log_start(task_name: str) -> None:
+    print(f"[START] task={task_name} env=itsm-openenv model=heuristic", flush=True)
+
+
+def log_step(step: int, action: str, reward: float, done: bool, error: str | None) -> None:
+    err = error if error else "null"
     print(
-        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}",
+        f"[STEP] step={step} action={action} reward={reward:.2f} done={str(done).lower()} error={err}",
         flush=True,
     )
 
 
-def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
-    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
+    rewards_text = ",".join(f"{value:.2f}" for value in rewards)
+    strict_score = clamp01_open(score)
+    print(
+        f"[END] success={str(success).lower()} steps={steps} score={strict_score:.3f} rewards={rewards_text}",
+        flush=True,
+    )
 
 
-def build_user_prompt(step: int, last_echoed: str, last_reward: float, history: List[str]) -> str:
-    history_block = "\n".join(history[-4:]) if history else "None"
-    return textwrap.dedent(
-        f"""
-        Step: {step}
-        Last echoed message: {last_echoed!r}
-        Last reward: {last_reward:.2f}
-        Previous steps:
-        {history_block}
-        Send your next message.
-        """
-    ).strip()
+def choose_action(observation: dict[str, Any], step_index: int) -> dict[str, Any]:
+    task_type = observation.get("task_type")
+    snapshot = observation.get("ticket_snapshot", {}) or {}
+    targets = observation.get("progress_signals", {}).get("targets_hint", {}) or {}
+
+    if step_index == 1:
+        return {
+            "action_type": "query",
+            "target_id": observation.get("task_id"),
+            "payload": {"note": "inspect current state"},
+        }
+
+    if task_type == "incident_sla":
+        return {
+            "action_type": "update_sla",
+            "payload": {
+                "stage": targets.get("target_stage"),
+                "has_breached": bool(targets.get("has_breached")),
+            },
+        }
+
+    if task_type == "problem":
+        if not snapshot.get("worknotes"):
+            return {
+                "action_type": "add_worknote",
+                "payload": {"text": "Sample workflow note for reproducible run."},
+            }
+        return {
+            "action_type": "update_problem",
+            "payload": {"status": targets.get("target_status", "fix_in_progress")},
+        }
+
+    if task_type == "incident_knowledge":
+        return {
+            "action_type": "attach_knowledge",
+            "payload": {
+                "incident_id": targets.get("incident_id"),
+                "knowledge_id": targets.get("knowledge_id"),
+                "used_as": targets.get("target_used_as"),
+            },
+        }
+
+    target_status = targets.get("target_status", "resolved")
+    if target_status == "closed":
+        return {
+            "action_type": "close",
+            "payload": {"close_notes": "Closed via sample heuristic."},
+        }
+
+    return {
+        "action_type": "resolve",
+        "payload": {"resolution_notes": "Resolved via sample heuristic."},
+    }
 
 
-def get_model_message(client: OpenAI, step: int, last_echoed: str, last_reward: float, history: List[str]) -> str:
-    user_prompt = build_user_prompt(step, last_echoed, last_reward, history)
-    try:
-        completion = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=TEMPERATURE,
-            max_tokens=MAX_TOKENS,
-            stream=False,
-        )
-        text = (completion.choices[0].message.content or "").strip()
-        return text if text else "hello"
-    except Exception as exc:
-        print(f"[DEBUG] Model request failed: {exc}", flush=True)
-        return "hello"
+def main() -> None:
+    session = requests.Session()
 
-
-async def main() -> None:
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-
-    MyEnvV4Action, MyEnvV4Env = load_env_bindings()
-
-    env = await MyEnvV4Env.from_docker_image(IMAGE_NAME)
-
-    history: List[str] = []
-    rewards: List[float] = []
+    log_start(TASK_ID)
+    rewards: list[float] = []
     steps_taken = 0
-    score = 0.0
     success = False
+    score = 0.0
 
-    log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
+    reset_response = session.post(f"{ENV_BASE_URL}/reset", json={"task_id": TASK_ID}, timeout=20)
+    reset_response.raise_for_status()
+    observation = reset_response.json()
 
-    try:
-        result = await env.reset() # OpenENV.reset()
-        last_echoed = result.observation.echoed_message
-        last_reward = 0.0
+    max_steps = int(observation.get("max_steps", 8))
 
-        for step in range(1, MAX_STEPS + 1):
-            if result.done:
-                break
+    for step in range(1, max_steps + 1):
+        action = choose_action(observation, step)
+        action_str = json.dumps(action, separators=(",", ":"), ensure_ascii=False)
 
-            message = get_model_message(client, step, last_echoed, last_reward, history)
+        step_response = session.post(f"{ENV_BASE_URL}/step", json=action, timeout=20)
+        step_response.raise_for_status()
+        result = step_response.json()
 
-            result = await env.step(MyEnvV4Action(message=message))
-            obs = result.observation
+        reward_payload = result.get("reward", 0.0)
+        reward = float(reward_payload.get("total", 0.0)) if isinstance(reward_payload, dict) else float(reward_payload)
+        done = bool(result.get("done", False))
+        obs = result.get("observation", {}) or {}
 
-            reward = result.reward or 0.0
-            done = result.done
-            error = None
+        rewards.append(reward)
+        steps_taken = step
+        log_step(step=step, action=action_str, reward=reward, done=done, error=obs.get("last_action_error"))
 
-            rewards.append(reward)
-            steps_taken = step
-            last_echoed = obs.echoed_message
-            last_reward = reward
-
-            log_step(step=step, action=message, reward=reward, done=done, error=error)
-
-            history.append(f"Step {step}: {message!r} -> reward {reward:+.2f}")
-
-            if done:
-                break
-
-        score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
-        score = min(max(score, 0.0), 1.0)  # clamp to [0, 1]
-        success = score >= SUCCESS_SCORE_THRESHOLD
-
-    finally:
+        info = result.get("info", {}) or {}
         try:
-            await env.close()
-        except Exception as e:
-            print(f"[DEBUG] env.close() error (container cleanup): {e}", flush=True)
-        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+            score = clamp01_open(float(info.get("grader_score", score)))
+        except (TypeError, ValueError):
+            score = clamp01_open(score)
+
+        observation = obs
+        if done:
+            success = bool(info.get("task_complete", False))
+            break
+
+    log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

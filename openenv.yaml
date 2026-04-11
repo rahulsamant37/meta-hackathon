@@ -21,10 +21,10 @@ environment:
     - step
     - state
   schemas:
-    action: models.ITSMAction
-    observation: models.ITSMObservation
-    reward: models.ITSMReward
-    info: models.ITSMInfo
+    action: itsm_openenv_benchmark.models.ITSMAction
+    observation: itsm_openenv_benchmark.models.ITSMObservation
+    reward: itsm_openenv_benchmark.models.ITSMReward
+    info: itsm_openenv_benchmark.models.ITSMInfo
   episode_limits:
     incident: 8
     incident_sla: 6

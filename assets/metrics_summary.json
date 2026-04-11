@@ -45,6 +45,5 @@
       "avg_step_reward": 0.4699999999999999,
       "avg_budget_utilization": 60.0
     }
-  },
-  "by_difficulty": {}
+  }
 }

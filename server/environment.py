@@ -1,9 +1,5 @@
-"""Canonical server-side environment module.
+"""Compatibility re-export for server imports."""
 
-This keeps the OpenEnv course layout (server/environment.py) while routing to
-the server-contained runtime package.
-"""
-
-from server.env.core import ITSMEnvironment
+from itsm_openenv_benchmark.environment import ITSMEnvironment
 
 __all__ = ["ITSMEnvironment"]

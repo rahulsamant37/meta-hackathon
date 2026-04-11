@@ -1,6 +1,6 @@
-"""Compatibility exports for OpenEnv root-level module expectations."""
+"""Compatibility re-exports for environment module-local imports."""
 
-from itsm_openenv_benchmark.models import (  # noqa: F401
+from ..models import (  # noqa: F401
     ActionStatus,
     ActionType,
     EnvState,

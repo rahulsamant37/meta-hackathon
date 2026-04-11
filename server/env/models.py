@@ -3,7 +3,7 @@
 Canonical typed contracts live in the root-level models module.
 """
 
-from models import (  # noqa: F401
+from itsm_openenv_benchmark.models import (  # noqa: F401
     ActionStatus,
     ActionType,
     EnvState,

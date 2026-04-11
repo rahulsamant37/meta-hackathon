@@ -5,8 +5,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from models import ITSMAction
-from server.environment import ITSMEnvironment
+from itsm_openenv_benchmark.environment import ITSMEnvironment
+from itsm_openenv_benchmark.models import ITSMAction
 
 
 class ResetRequest(BaseModel):

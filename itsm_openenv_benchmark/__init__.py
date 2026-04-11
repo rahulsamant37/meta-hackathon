@@ -1,6 +1,8 @@
-"""Compatibility exports for OpenEnv root-level module expectations."""
+"""Canonical package for the ITSM OpenEnv benchmark."""
 
-from itsm_openenv_benchmark.models import (  # noqa: F401
+from .client import ITSMEnv
+from .environment import ITSMEnvironment
+from .models import (
     ActionStatus,
     ActionType,
     EnvState,
@@ -18,6 +20,8 @@ __all__ = [
     "ActionType",
     "EnvState",
     "ITSMAction",
+    "ITSMEnv",
+    "ITSMEnvironment",
     "ITSMInfo",
     "ITSMObservation",
     "ITSMReward",
