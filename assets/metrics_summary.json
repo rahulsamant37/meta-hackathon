@@ -1,0 +1,50 @@
+{
+  "overall": {
+    "count": 181.0,
+    "success_rate": 100.0,
+    "avg_steps": 3.0,
+    "avg_return": 1.4674585635359116,
+    "avg_terminal_reward": 0.6512707182320443,
+    "avg_step_reward": 0.48915285451197055,
+    "avg_budget_utilization": 44.889502762430936
+  },
+  "by_type": {
+    "incident": {
+      "count": 100.0,
+      "success_rate": 100.0,
+      "avg_steps": 3.0,
+      "avg_return": 1.4931999999999996,
+      "avg_terminal_reward": 0.6712000000000002,
+      "avg_step_reward": 0.4977333333333333,
+      "avg_budget_utilization": 37.5
+    },
+    "incident_sla": {
+      "count": 26.0,
+      "success_rate": 100.0,
+      "avg_steps": 3.0,
+      "avg_return": 1.465384615384615,
+      "avg_terminal_reward": 0.6469230769230769,
+      "avg_step_reward": 0.4884615384615384,
+      "avg_budget_utilization": 50.0
+    },
+    "problem": {
+      "count": 10.0,
+      "success_rate": 100.0,
+      "avg_steps": 3.0,
+      "avg_return": 1.4740000000000002,
+      "avg_terminal_reward": 0.649,
+      "avg_step_reward": 0.49133333333333334,
+      "avg_budget_utilization": 37.5
+    },
+    "incident_knowledge": {
+      "count": 45.0,
+      "success_rate": 100.0,
+      "avg_steps": 3.0,
+      "avg_return": 1.4099999999999997,
+      "avg_terminal_reward": 0.6099999999999999,
+      "avg_step_reward": 0.4699999999999999,
+      "avg_budget_utilization": 60.0
+    }
+  },
+  "by_difficulty": {}
+}
