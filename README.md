@@ -204,7 +204,7 @@ All numbers below are computed from full_run.log and tasks.jsonl using scripts/g
 
 ![ITSM Benchmark Metrics](assets/metrics.png)
 
-Figure 1: Four-panel dashboard showing completion accuracy, reward efficiency, terminal-step quality, and interaction-cost profile by task family. The results indicate highly stable completion behavior and consistent reward attainment while consuming substantially less than full per-task step budgets.
+Figure 1: Three-panel dashboard showing reward efficiency, interaction-cost profile, and step-vs-terminal reward comparison by task family. The results indicate stable completion behavior and consistent reward attainment while consuming substantially less than full per-task step budgets.
 
 ![ITSM Benchmark Line Chart](assets/metrics_line.png)
 
