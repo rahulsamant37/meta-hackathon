@@ -14,11 +14,35 @@ app_port: 8000
 [![Tasks](https://img.shields.io/badge/Benchmark%20Tasks-181-2E7D32)](tasks.jsonl)
 [![Evaluation](https://img.shields.io/badge/Evaluation-Deterministic-5E35B1)](full_run.log)
 
-This repository provides a fully runnable IT Service Management benchmark environment with deterministic grading and a reproducible 181-task evaluation protocol.
+This repository provides a fully runnable IT Service Management (ITSM) benchmark environment with deterministic grading and a reproducible 181-task evaluation protocol.
+
+## Table of Contents
+
+- [Abstract](#abstract)
+- [Motivation / Problem Statement](#motivation--problem-statement)
+- [Methodology / Approach](#methodology--approach)
+- [Benchmark at a Glance](#benchmark-at-a-glance)
+- [Project Structure](#project-structure)
+- [Installation and Setup](#installation-and-setup)
+- [Usage Examples](#usage-examples)
+- [GRPO Notebook Workflow](#grpo-notebook-workflow)
+- [Results / Performance Evaluation](#results--performance-evaluation)
+- [Experiments and Observations](#experiments-and-observations)
+- [Environment Quality Showcase](#environment-quality-showcase)
+- [Reproducibility](#reproducibility)
+- [Future Work](#future-work)
+- [References / Citations](#references--citations)
 
 ## Abstract
 
-Reliable benchmarking for ITSM agents requires deterministic environment behavior, realistic enterprise workflows, and transparent grading. This project introduces an OpenEnv-style benchmark grounded in seeded operational data, spanning incident lifecycle management, SLA handling, problem management, and incident-knowledge linkage. The environment exposes a standard reset/step/state API, enforces typed interactions, and evaluates each step via deterministic graders. On the provided baseline run, the system achieves 100% task completion across 181 tasks with consistent low interaction cost (3.0 steps per episode on average), making this environment suitable for repeatable agent research and robust comparative experimentation.
+Reliable benchmarking for ITSM agents requires deterministic environment behavior, realistic enterprise workflows, and transparent grading. This project introduces an OpenEnv-style benchmark grounded in seeded operational data, spanning incident lifecycle management, SLA handling, problem management, and incident-knowledge linkage. The environment exposes a standard `reset`/`step`/`state` API, enforces typed interactions, and evaluates each step via deterministic graders. On the provided baseline run, the system achieves 100% task completion across 181 tasks with low interaction cost (3.0 steps per episode on average), making this environment suitable for repeatable agent research and robust comparative experimentation.
+
+## Key Contributions
+
+- Deterministic, data-grounded benchmark tasks mapped to canonical SQL seeds.
+- Typed environment protocol and deterministic family-specific graders.
+- Reproducible baseline evaluation with structured run logs.
+- Research-ready reporting with summary tables and visual dashboards.
 
 ## Motivation / Problem Statement
 
@@ -47,19 +71,19 @@ High-level evaluation loop:
 3. Apply deterministic transition and grade updated state.
 4. Terminate on completion, step budget exhaustion, or invalid-action threshold.
 
-## Benchmark At A Glance
+## Benchmark at a Glance
 
 | Item | Value |
 |---|---|
 | Domain | IT Service Management |
 | Task count | 181 |
-| Task families | incident, incident_sla, problem, incident_knowledge |
-| API | reset, step, state (+ health) |
+| Task families | `incident`, `incident_sla`, `problem`, `incident_knowledge` |
+| API | `reset`, `step`, `state` (+ `health`) |
 | Grading | deterministic, bounded in [0, 1] |
-| Canonical SQL seed | itsm/dbs/db_1768479715490_ex6u7viv2.sql |
-| Task manifest | tasks.jsonl |
+| Canonical SQL seed | `itsm/dbs/db_1768479715490_ex6u7viv2.sql` |
+| Task manifest | `tasks.jsonl` |
 
-Task-family composition:
+### Task Family Composition
 
 | Task family | Count |
 |---|---:|
@@ -72,6 +96,12 @@ Task-family composition:
 
 ```text
 .
+├── assets/
+│   ├── metrics.png                  # Multi-panel benchmark dashboard
+│   ├── metrics_line.png             # Marker-based trend visualization
+│   └── metrics_summary.json         # Machine-readable benchmark summary
+├── itsm/
+│   └── dbs/                         # Canonical SQL seed snapshots
 ├── server/
 │   ├── app.py                        # FastAPI application and HTTP routes
 │   ├── environment.py                # Environment entry wrapper
@@ -80,6 +110,7 @@ Task-family composition:
 │       ├── loaders.py                # SQL/task loading and indexing
 │       ├── models.py                 # Internal environment models
 │       └── graders/                  # Family-specific deterministic graders
+│           ├── common.py
 │           ├── incident.py
 │           ├── sla.py
 │           ├── problem.py
@@ -91,11 +122,16 @@ Task-family composition:
 ├── full_run.log                      # Baseline full-benchmark run log
 ├── openenv.yaml                      # Benchmark metadata
 ├── scripts/generate_metrics_plot.py  # Reproducible metrics figure generator
-├── assets/metrics.png                # Multi-panel benchmark dashboard
-└── assets/metrics_line.png           # Line chart with markers
+└── itsm_grpo_torchforge.ipynb         # Optional GRPO fine-tuning workflow
 ```
 
-## Installation & Setup
+## Installation and Setup
+
+### Prerequisites
+
+- Python 3.11+
+- `uv` package manager (recommended)
+- Docker (optional)
 
 ### Option A: Local (UV)
 
@@ -118,6 +154,12 @@ docker build -t itsm-openenv -f server/Dockerfile .
 docker run --rm -p 8000:8000 itsm-openenv
 ```
 
+### Quick health check
+
+```bash
+curl -s http://localhost:8000/health
+```
+
 ## Usage Examples
 
 ### 1) Run baseline inference (structured protocol logs)
@@ -133,9 +175,9 @@ uv run python inference.py
 
 Expected log format:
 
-- [START] task=... env=... model=...
-- [STEP] step=... action=... reward=... done=... error=...
-- [END] success=... steps=... score=... rewards=...
+- `[START] task=... env=... model=...`
+- `[STEP] step=... action=... reward=... done=... error=...`
+- `[END] success=... steps=... score=... rewards=...`
 
 ### 2) Interact with API directly
 
@@ -144,7 +186,7 @@ curl -s http://localhost:8000/health
 curl -s -X POST http://localhost:8000/reset -H "Content-Type: application/json" -d '{"task_id":"ITSM-001"}'
 ```
 
-### 3) Reproduce the metrics figure
+### 3) Reproduce metrics artifacts
 
 ```bash
 source .venv/bin/activate
@@ -157,9 +199,15 @@ python scripts/generate_metrics_plot.py \
   --summary-out assets/metrics_summary.json
 ```
 
+Generated artifacts:
+
+- `assets/metrics.png`
+- `assets/metrics_line.png`
+- `assets/metrics_summary.json`
+
 ## GRPO Notebook Workflow
 
-The notebook itsm_grpo_torchforge.ipynb follows this execution pipeline:
+The notebook `itsm_grpo_torchforge.ipynb` follows this execution pipeline:
 
 1. Install dependencies for TRL, Transformers, PEFT, datasets, bitsandbytes, and TorchForge (with runtime-safe fallbacks).
 2. Load configuration (space URL, model, train/eval limits, prompt/completion lengths, output paths).
@@ -174,11 +222,11 @@ The notebook itsm_grpo_torchforge.ipynb follows this execution pipeline:
 11. Train the policy, then save model/tokenizer artifacts.
 12. Run quick one-step evaluation and report mean/median/min/max scores.
 
-This is the exact notebook path used for the above process: itsm_grpo_torchforge.ipynb.
+This is the exact notebook path used for the above process: `itsm_grpo_torchforge.ipynb`.
 
 ## Results / Performance Evaluation
 
-All numbers below are computed from full_run.log and tasks.jsonl using scripts/generate_metrics_plot.py.
+All numbers below are computed from `full_run.log` and `tasks.jsonl` using `scripts/generate_metrics_plot.py`.
 
 ### Overall baseline
 
@@ -191,14 +239,23 @@ All numbers below are computed from full_run.log and tasks.jsonl using scripts/g
 | Avg terminal-step reward | 0.651 |
 | Avg per-step reward | 0.489 |
 
-### Family-level summary
+### Family-Level Completion and Efficiency
 
-| Task family | Count | Success (%) | Avg steps | Avg return | Avg terminal reward | Avg step-budget utilization |
-|---|---:|---:|---:|---:|---:|---:|
-| incident | 100 | 100.0 | 3.000 | 1.493 | 0.671 | 37.5% |
-| incident_sla | 26 | 100.0 | 3.000 | 1.465 | 0.647 | 50.0% |
-| problem | 10 | 100.0 | 3.000 | 1.474 | 0.649 | 37.5% |
-| incident_knowledge | 45 | 100.0 | 3.000 | 1.410 | 0.610 | 60.0% |
+| Task family | Count | Success (%) | Avg steps | Step budget used |
+|---|---:|---:|---:|---:|
+| incident | 100 | 100.0 | 3.000 | 37.5% |
+| incident_sla | 26 | 100.0 | 3.000 | 50.0% |
+| problem | 10 | 100.0 | 3.000 | 37.5% |
+| incident_knowledge | 45 | 100.0 | 3.000 | 60.0% |
+
+### Family-Level Reward Profile
+
+| Task family | Avg return | Avg terminal reward |
+|---|---:|---:|
+| incident | 1.493 | 0.671 |
+| incident_sla | 1.465 | 0.647 |
+| problem | 1.474 | 0.649 |
+| incident_knowledge | 1.410 | 0.610 |
 
 ### Visual metrics and plots
 
@@ -214,9 +271,9 @@ How to read these visuals:
 
 1. Use Figure 1 for absolute comparisons at a glance (bar heights and exact labels).
 2. Use Figure 2 for trend interpretation across families (connected marker trajectories).
-3. Cross-check all plotted values with the numeric tables above and assets/metrics_summary.json.
+3. Cross-check all plotted values with the numeric tables above and `assets/metrics_summary.json`.
 
-## Experiments & Observations
+## Experiments and Observations
 
 1. Deterministic grading stability: repeated evaluations over fixed seed/task ordering produce consistent completion and reward statistics.
 2. Interaction efficiency: all families complete in 3 steps on average despite family-specific maximum step budgets (5 to 8), indicating strong policy efficiency.
@@ -227,17 +284,19 @@ How to read these visuals:
 
 ### Software/runtime profile
 
-| Category | Specification |
+| Item | Value |
 |---|---|
 | Python | 3.11+ |
-| Reference hardware (optional training notebook) | NVIDIA GeForce RTX 3050 6GB Laptop GPU (CUDA path observed) |
+| Reference hardware | NVIDIA GeForce RTX 3050 6GB Laptop GPU |
 | API framework | FastAPI |
 | Packaging | UV + pyproject |
 | Containerization | Docker |
 | Evaluation protocol | deterministic START/STEP/END logs |
 | Optional training notebook | GRPO + QLoRA path (4-bit capable) |
 
-### Efficiency comparison against step budget ceilings
+Note: hardware is optional and shown only as an observed training profile.
+
+### Efficiency Comparison Against Step-Budget Ceilings
 
 | Task family | Max steps (manifest) | Avg used steps | Unused budget |
 |---|---:|---:|---:|
@@ -254,8 +313,8 @@ To reproduce the reported numbers end-to-end:
 
 1. Use the canonical SQL seed and tasks manifest in this repository.
 2. Run the server in local or Docker mode.
-3. Execute inference.py to regenerate full_run.log.
-4. Run scripts/generate_metrics_plot.py to regenerate assets/metrics.png, assets/metrics_line.png, and assets/metrics_summary.json.
+3. Execute `inference.py` to regenerate `full_run.log`.
+4. Run `scripts/generate_metrics_plot.py` to regenerate `assets/metrics.png`, `assets/metrics_line.png`, and `assets/metrics_summary.json`.
 
 For strict reproducibility across runs:
 
@@ -272,6 +331,14 @@ For strict reproducibility across runs:
 
 ## References / Citations
 
-- OpenEnv-style interaction pattern (reset/step/state) as adopted in benchmarked environment APIs.
-- FastAPI documentation: https://fastapi.tiangolo.com/
-- Qwen model family (for baseline runner and optional notebook experiments): https://huggingface.co/Qwen
+- [Meta PyTorch OpenEnv](https://github.com/meta-pytorch/OpenEnv)
+- [Hugging Face OpenEnv Course](https://github.com/huggingface/openenv-course)
+- [Meta PyTorch TorchForge](https://github.com/meta-pytorch/torchforge)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Transformers (Hugging Face)](https://github.com/huggingface/transformers)
+- [TRL (Hugging Face)](https://github.com/huggingface/trl)
+- [PEFT (Hugging Face)](https://github.com/huggingface/peft)
+- [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes)
+- [Qwen Model Collection](https://huggingface.co/Qwen)
+- [Docker Documentation](https://docs.docker.com/)
+- [uv Documentation](https://docs.astral.sh/uv/)
